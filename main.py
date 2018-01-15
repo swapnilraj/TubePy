@@ -1,39 +1,41 @@
-try:
-    from bs4 import BeautifulSoup
-except ImportError:
-    from BeautifulSoup import BeautifulSoup
+#!/usr/bin/env python
 
-import urllib2
-import os
-COMMAND = 'youtube-dl http://www.youtube.com/watch?v=%s -o - | mplayer -vo matrixview:cols=400:rows=320 -'
-dict = {}
-list = {}
-num = 0
-search = str(raw_input('Press y for search: '))
-if 'y' in search:
-    searchQuery = str(raw_input('Search Query: ')).replace(' ', '+')
-    LINK = 'https://www.youtube.com/results?search_query=%s' % searchQuery
-else:
-    LINK = 'https://www.youtube.com/'
-print LINK
+from bs4 import BeautifulSoup
+import subprocess
+from urllib.request import urlopen
+from urllib.parse import quote
+import re
+import sys
+
+search = ' '.join(sys.argv[1:])
+query = "https://www.youtube.com/results?search_query={}".format(
+        quote(search))
+
 try:
-    youtubeFile = urllib2.urlopen(LINK)
+    youtubeFile = urlopen(query)
     youtuebHtml = youtubeFile.read()
     youtubeFile.close()
 except:
-    print 'Not connected to internet'
+    print("Not connected to the internet")
     exit()
 
-soup = BeautifulSoup(youtuebHtml, 'lxml')
-youtubeVideos = soup.find_all('a', {'class': 'yt-ui-ellipsis'})
-for videoLink in youtubeVideos:
-    temp = str(videoLink.contents)
-    if '<' not in temp:
+soup = BeautifulSoup(youtuebHtml, "lxml")
+videos = soup.find_all('a', {"class": "yt-ui-ellipsis"})
+endings = []
+num = 0
+reg = re.compile("^/user/")
+for link in videos:
+    temp = str(link.contents[0])
+    if (not reg.match(link["href"])):
+        print("{}: {}".format(num + 1, temp))
         num += 1
-        print '%d %s' % (num, temp)
-    list[num] = temp
-    dict[temp] = str(videoLink['href'])[9:]
+        endings.append(str(link["href"]))
 
-input = int(raw_input('>'))
-id = dict[list[input]]
-os.system(COMMAND % id)
+ind = int(input('> '))
+ending = endings[ind - 1]
+videos = subprocess.check_output(
+        ["youtube-dl", "-g",
+            "http://www.youtube.com{}".format(ending)]).decode("utf-8")
+video = videos.split("\n")[0]
+print(video)
+subprocess.call(["mpv", video])
